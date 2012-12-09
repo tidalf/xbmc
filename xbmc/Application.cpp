@@ -76,6 +76,7 @@
 #include "filesystem/SpecialProtocol.h"
 #include "filesystem/DllLibCurl.h"
 #include "filesystem/MythSession.h"
+#include "filesystem/MusicDatabaseFile.h"
 #include "filesystem/PluginDirectory.h"
 #ifdef HAS_FILESYSTEM_SAP
 #include "filesystem/SAPDirectory.h"
@@ -3878,6 +3879,18 @@ bool CApplication::PlayFile(const CFileItem& item, bool bRestart)
     return false;
   }
 
+     // resolve MusicDb url, needed to resolve plugin items in music database
+  if (item.IsMusicDb())
+  {
+    CURL url(item.GetPath());
+    if (CStdString mainFile = CMusicDatabaseFile::TranslateUrl(url))
+    {
+      CFileItem item_new(mainFile,false);
+      return PlayFile(item_new, false);
+    }
+    return false;
+  } 
+
 #ifdef HAS_UPNP
   if (URIUtils::IsUPnP(item.GetPath()))
   {
@@ -4849,8 +4862,10 @@ bool CApplication::OnMessage(CGUIMessage& message)
 
       // ok, grab the next song
       CFileItem file(*playlist[iNext]);
-      // handle plugin://
+      // handle plugin:// and musicdb://
       CURL url(file.GetPath());
+      if (url.GetProtocol() == "musicdb" )
+        url = CMusicDatabaseFile::TranslateUrl(url);
       if (url.GetProtocol() == "plugin")
         XFILE::CPluginDirectory::GetPluginResult(url.Get(), file);
 
